@@ -196,7 +196,7 @@ class ComplexResponse:
         """Fetches the length component of dipoles from respective driver.
         """
 
-        dipole_driver = ElectricDipoleIntegralsDriver(self.rank, self.size, self.comm)
+        dipole_driver = ElectricDipoleIntegralsDriver(self.comm)
 #        master_node = (self.rank == mpi_master())
 #        if master_node:
 #            mol = Molecule.read_xyz(self.xyz)
@@ -204,7 +204,7 @@ class ComplexResponse:
 #        else:
 #            mol = Molecule()
 #            bas = MolecularBasis()
-        dipoles = dipole_driver.compute(task.molecule, task.ao_basis, self.comm)
+        dipoles = dipole_driver.compute(task.molecule, task.ao_basis)
 
         return dipoles.x_to_numpy(), dipoles.y_to_numpy(), dipoles.z_to_numpy()
 
@@ -212,8 +212,8 @@ class ComplexResponse:
         """Fetches the overlap matrix.
         """
 
-        overlap = OverlapIntegralsDriver(self.rank, self.size, self.comm)
-        s = overlap.compute(task.molecule, task.ao_basis, self.comm)
+        overlap = OverlapIntegralsDriver(self.comm)
+        s = overlap.compute(task.molecule, task.ao_basis)
 
         return s.to_numpy()
 
@@ -410,7 +410,7 @@ class ComplexResponse:
 
         return new_ger, new_ung
 
-    def clr_solve(self, mol_orbs, task, ops='xyz', freqs=(0, 0.5,), d=0.004556335294880438, maxit=500, threshold=1.0e-6):
+    def clr_solve(self, mol_orbs, task, ops='xyz', freqs=(0.5,), d=0.004556335294880438, maxit=100, threshold=1.0e-6):
         """Solves for the approximate response vector iteratively
         while checking the residuals for convergence.
 
@@ -711,11 +711,11 @@ class ComplexResponse:
             fock.set_fock_type(fockmat.rgenk, i+1)
 
         eri_driver = ElectronRepulsionIntegralsDriver(
-            self.rank, self.size, self.comm
+            self.comm
         )
         screening = eri_driver.compute(ericut.qqden, 1.0e-12, mol, bas)
         eri_driver.compute(ericut.qqden, 1.0e-12, mol, bas)
-        eri_driver.compute(fock, dens, mol, bas, screening, self.comm)
+        eri_driver.compute(fock, dens, mol, bas, screening)
         fock.reduce_sum(self.rank, self.size, self.comm)
 
         fabs = []
@@ -733,17 +733,17 @@ class ComplexResponse:
 
     def get_one_el_hamiltonian(self, task):
         kinetic_driver = KineticEnergyIntegralsDriver(
-            self.rank, self.size, self.comm
+            self.comm
         )
         potential_driver = NuclearPotentialIntegralsDriver(
-            self.rank, self.size, self.comm
+            self.comm
         )
 
         mol = task.molecule
         bas = task.ao_basis
 
-        T = kinetic_driver.compute(mol, bas, self.comm).to_numpy()
-        V = potential_driver.compute(mol, bas, self.comm).to_numpy()
+        T = kinetic_driver.compute(mol, bas).to_numpy()
+        V = potential_driver.compute(mol, bas).to_numpy()
 
         return T-V
 
